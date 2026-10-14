@@ -1,0 +1,48 @@
+name: ShadowLegion Translate Relay
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      replay:
+        description: "테스트용: 최근 N개를 다시 번역해서 보내기 (0이면 평소처럼 새 메시지만)"
+        default: "0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: relay
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install telethon requests
+      - uses: actions/cache/restore@v4
+        with:
+          path: relay_state.json
+          key: relay-state-${{ github.run_id }}
+          restore-keys: relay-state-
+      - run: python relay.py
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          TG_SESSION: ${{ secrets.TG_SESSION }}
+          TG_SOURCE_CHAT_ID: ${{ secrets.TG_SOURCE_CHAT_ID }}
+          TG_DEST_CHAT_ID: ${{ secrets.TG_DEST_CHAT_ID }}
+          REPLAY: ${{ inputs.replay || '0' }}
+      - uses: actions/cache/save@v4
+        if: always() && hashFiles('relay_state.json') != ''
+        with:
+          path: relay_state.json
+          key: relay-state-${{ github.run_id }}-${{ github.run_attempt }}
