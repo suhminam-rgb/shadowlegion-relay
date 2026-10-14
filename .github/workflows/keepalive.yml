@@ -1,0 +1,23 @@
+name: Keepalive
+
+# 저장소에 60일 동안 활동이 없으면 GitHub이 예약 실행을 끄기 때문에,
+# 매달 모든 워크플로에 enable API를 호출해서 비활성 타이머를 다시 시작한다.
+on:
+  schedule:
+    - cron: "0 0 1 * *"
+  workflow_dispatch: {}
+
+permissions:
+  actions: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for wf in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows" --jq '.workflows[].path'); do
+            gh api --method PUT "repos/$GITHUB_REPOSITORY/actions/workflows/$(basename "$wf")/enable"
+            echo "enable: $(basename "$wf")"
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
